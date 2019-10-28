@@ -2,6 +2,17 @@
 
 package com.mycompany.texteditor;
 import java.util.Scanner;
+import javax.swing.JOptionPane;
+import javax.swing.JButton;
+import javax.swing.JPanel;
+import javax.swing.JFrame;
+import javax.swing.UIManager;
+import javax.swing.plaf.metal.OceanTheme;
+import java.awt.event.ActionListener;
+import java.awt.event.ActionEvent;
+import javax.swing.UIManager;
+import javax.swing.plaf.metal.MetalLookAndFeel;
+
 /**
  *
  *
@@ -25,7 +36,17 @@ public class TextEditor {
 
     public static void main(String args[])
     {
-
+        GfxInterface gfxInterface = new GfxInterface();
+        gfxInterface.startMainWindow();
+        try{
+            UIManager.setLookAndFeel("javax.swing.plaf.metal.MetalLookAndFeel");
+            MetalLookAndFeel.setCurrentTheme(new OceanTheme());
+        }catch(Exception e)
+        {
+            System.exit(0);
+        }
+        
+        
         Text text = new Text();
 
         Cursor cursor = new Cursor();//Cursor utilizado pelo usuário.
@@ -44,7 +65,7 @@ public class TextEditor {
         
         System.out.println("Bem-Vindo ao Ultimate TextEditor Experience");
 
-        Menu.printInstructions();
+        GfxInterface.printInstructions();
         while(!quit)//Loop principal do programa
         {            
             fullOption = scanner.nextLine();
@@ -88,7 +109,7 @@ public class TextEditor {
                     redoChange(text);
                     break;
                 case 'h':
-                    Menu.printInstructions();
+                    GfxInterface.printInstructions();
                     break;
                 case 'q':
                     quit = true;
