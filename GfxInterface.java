@@ -4,6 +4,8 @@ import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JTextArea;
 import javax.swing.JLabel;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.JOptionPane;
 import javax.swing.JButton;
 import javax.swing.JPanel;
@@ -17,6 +19,7 @@ import javax.swing.AbstractAction;
 import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
 import javax.swing.KeyStroke;
+import javax.swing.JFileChooser;
 import java.awt.BorderLayout;
 import java.awt.GridLayout;
 import java.awt.event.ActionListener;
@@ -28,6 +31,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.UnsupportedFlavorException;
+import javax.swing.filechooser.FileSystemView;
 
 /**
  * Esta classe tem o objetivo de servir como um dep&oacute;sito de menus internos do programa.
@@ -42,15 +46,16 @@ public class GfxInterface {
      *
      */
     
+    private ServerSimulation server;
     private JFrame mainFrame;
     private JPanel butPanel;//Painel que contêm os botões
     private JPanel textPanel;//Painel que contêm o texto
     private JButton exitButton;//Permite a saída do programa
-    private JButton addButton;//Botão que realiza a adição
     private JPopupMenu rClickPopup;//Popup ao clicar botão direito
     private JTextArea textArea;//Área para texto
     private Document doc;//Document utilizado para Undo e Redo
     private UndoManager undoManager;//Utilizado para Undo e Redo
+    private String fileName;
     
     public GfxInterface()//O constructor inicializa os componentes.
     {
@@ -60,16 +65,16 @@ public class GfxInterface {
         butPanel = new JPanel();
         textPanel = new JPanel();
         
-        exitButton = new JButton("Exit");
+        exitButton = new JButton("Close");
         exitButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e)
             {
                 System.exit(0);
             }
         });
-        addButton = new JButton("Add");
         textArea = new JTextArea();
         textArea.setPreferredSize(new Dimension(480, 480));
+        server = new ServerSimulation(textArea);
     }
     
     public void startMainWindow()//Inicializa a janela principal do programa
@@ -78,9 +83,24 @@ public class GfxInterface {
         butPanel.setLayout(new GridLayout(1,2));
         
         butPanel.add(exitButton);
-        butPanel.add(addButton);
         textArea.setLineWrap(true);
         textArea.setWrapStyleWord(true);
+        textArea.getDocument().addDocumentListener(new DocumentListener(){
+            public void insertUpdate(DocumentEvent e)
+            {
+                startNewThread();
+            }
+            
+            public void removeUpdate(DocumentEvent e)
+            {
+                startNewThread();
+            }
+            
+            public void changedUpdate(DocumentEvent e)
+            {
+                startNewThread();
+            }
+        });
         textPanel.add(textArea);
         textPanel.setPreferredSize(new Dimension(480, 480));
         
@@ -104,12 +124,16 @@ public class GfxInterface {
         JMenu menuFile = new JMenu("File");
         JMenu menuProgram = new JMenu("Program");
         
-        JMenuItem fileNew = new JMenuItem("New");
         JMenuItem fileOpen = new JMenuItem("Open");
-        JMenuItem fileSave = new JMenuItem("Save");
-        menuFile.add(fileNew);
+        fileOpen.addActionListener(new ActionListener(){
+            public void actionPerformed(ActionEvent e)
+            {
+                JFileChooser fileChooser = new JFileChooser(
+                        FileSystemView.getFileSystemView().getHomeDirectory());
+                fileChooser.showSaveDialog(butPanel);
+            }
+        });
         menuFile.add(fileOpen);
-        menuFile.add(fileSave);
         
         JMenuItem programClose = new JMenuItem("Close");
         programClose.addActionListener(new ActionListener(){
@@ -230,17 +254,21 @@ public class GfxInterface {
                 getKeyStroke("control Y"), "Redo");        
     }
     
-    static void printInstructions()
+    public void setFileName()//Pega nome do arquivo para salar o texto
     {
-        System.out.println("p - imprimir texto atual");
-        System.out.println("c - consultar posição do cursor");
-        System.out.println("a* - Adicionar caracter (* é o caracter"
-                + " a ser adicionado");
-        System.out.println("r - remove o caracter na posição do cursor");
-        System.out.println("U - Desfaz última mudança");
-        System.out.println("R - refaz uma mudança");
-        System.out.println("h - Imprimir essa tela de comandos.");
-        System.out.println("q - Sair do programa");
+        this.fileName = JOptionPane.showInputDialog("Qual o nome do arquivo onde"
+                + "deseja salvar seu texto?");
+        server.setFileName(fileName);
     }
-
+    
+    public void startNewThread()//Inicia um nova thread de salvamento
+    {
+        Thread thread = new Thread(server);
+        thread.run();
+    }
+    
+    public JTextArea getText()
+    {
+        return textArea;
+    }
 }
