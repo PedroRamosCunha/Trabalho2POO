@@ -128,9 +128,7 @@ public class GfxInterface {
         fileOpen.addActionListener(new ActionListener(){
             public void actionPerformed(ActionEvent e)
             {
-                JFileChooser fileChooser = new JFileChooser(
-                        FileSystemView.getFileSystemView().getHomeDirectory());
-                fileChooser.showSaveDialog(butPanel);
+                setFileName();
             }
         });
         menuFile.add(fileOpen);
