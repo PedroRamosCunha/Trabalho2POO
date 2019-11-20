@@ -31,27 +31,13 @@ public class TextEditor {
     public static void main(String args[])
     {
         GfxInterface gfxInterface = new GfxInterface();
-        gfxInterface.startMainWindow();
+        gfxInterface.startClient();
         try{
             UIManager.setLookAndFeel("javax.swing.plaf.metal.MetalLookAndFeel");
             MetalLookAndFeel.setCurrentTheme(new OceanTheme());
         }catch(Exception e)
         {
             
-        }
-        gfxInterface.setFileName();
-        
-        /*boolean flag = true;
-        JTextArea textArea = gfxInterface.getText();
-        ServerSimulation server = new ServerSimulation(textArea);
-        String fileName = gfxInterface.getFileName();
-        String prev
-        while(flag)//Loop para salvar sempre que houver edição
-        {
-            //Sempre que ocorrer edição, o loop inicia uma nova thread, para
-            //simular múltiplas pessoas editando o arquivo ao mesmo tempo
-            
-        }*/
-        
+        }     
     }
 }

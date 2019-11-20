@@ -31,6 +31,13 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.UnsupportedFlavorException;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JTextField;
 import javax.swing.filechooser.FileSystemView;
 
 /**
@@ -46,7 +53,6 @@ public class GfxInterface {
      *
      */
     
-    private ServerSimulation server;
     private JFrame mainFrame;
     private JPanel butPanel;//Painel que contêm os botões
     private JPanel textPanel;//Painel que contêm o texto
@@ -56,6 +62,11 @@ public class GfxInterface {
     private Document doc;//Document utilizado para Undo e Redo
     private UndoManager undoManager;//Utilizado para Undo e Redo
     private String fileName;
+    private Thread clientThread = null;
+    private Socket socket = null;
+    private ObjectInputStream input = null;
+    private ObjectOutputStream output = null;
+    private boolean needsUpdate = true;//Se falso o arquivo não será enviado para o servidor após mudança
     
     public GfxInterface()//O constructor inicializa os componentes.
     {
@@ -74,31 +85,113 @@ public class GfxInterface {
         });
         textArea = new JTextArea();
         textArea.setPreferredSize(new Dimension(480, 480));
-        server = new ServerSimulation(textArea);
+    }
+    
+    @SuppressWarnings("empty-statement")
+    public void startClient()
+    {
+        JFrame window = new JFrame("Server Configuration.");
+        window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        JPanel portPanel = new JPanel();
+        JPanel ipPanel = new JPanel();
+        JPanel okPanel = new JPanel();
+        JLabel portLabel = new JLabel("Port:");
+        JLabel ipLabel = new JLabel("IP:");
+        JTextField portTField = new JTextField("1234", 20);
+        JTextField ipTField = new JTextField("127.0.0.1", 20);
+        JButton okButton = new JButton("Connect");
+        
+        portPanel.setLayout(new BorderLayout());
+        portPanel.add(portLabel, BorderLayout.CENTER);
+        portPanel.add(portTField, BorderLayout.LINE_END);
+        
+        ipPanel.setLayout(new BorderLayout());
+        ipPanel.add(ipLabel, BorderLayout.CENTER);
+        ipPanel.add(ipTField, BorderLayout.LINE_END);
+        
+        window.setLayout(new GridLayout(3,0));
+        window.add(portPanel);
+        window.add(ipPanel);
+        window.add(okButton);
+        
+        okButton.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent e)
+            {
+                try {
+                    String ip = ipTField.getText();
+                    int port = Integer.parseInt(portTField.getText());
+                    socket = new Socket(ip, port);
+                    input = new ObjectInputStream(socket.getInputStream());
+                    output = new ObjectOutputStream(socket.getOutputStream());
+                    setClientThread();
+                    window.dispose();
+                    startMainWindow();
+                } catch (IOException ex) {
+                    System.out.println("Erro conectando ao servidor.");
+                }
+            }
+        });
+        
+        window.pack();
+        window.setVisible(true);
     }
     
     public void startMainWindow()//Inicializa a janela principal do programa
     {
+        setFileName();   
         mainFrame.setLayout(new BorderLayout());
         butPanel.setLayout(new GridLayout(1,2));
         
         butPanel.add(exitButton);
         textArea.setLineWrap(true);
         textArea.setWrapStyleWord(true);
+        
+        //Define que o texto será enviado ao servidor para cada edição realizada
         textArea.getDocument().addDocumentListener(new DocumentListener(){
             public void insertUpdate(DocumentEvent e)
             {
-                startNewThread();
+                if(needsUpdate)
+                {
+                    try {
+                        output.writeInt(2);
+                        output.writeUTF(textArea.getText());
+                        output.flush();
+                    } catch (IOException ex) {
+                        System.out.println("Erro ao enviar edição para o servidor.");
+                        Logger.getLogger(GfxInterface.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
             }
             
             public void removeUpdate(DocumentEvent e)
             {
-                startNewThread();
+                if(needsUpdate)
+                {
+                    try {
+                        output.writeInt(2);
+                        output.writeUTF(textArea.getText());
+                        output.flush();
+                    } catch (IOException ex) {
+                        System.out.println("Erro ao enviar edição para o servidor.");
+                        Logger.getLogger(GfxInterface.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
             }
             
             public void changedUpdate(DocumentEvent e)
             {
-                startNewThread();
+                if(needsUpdate)
+                {
+                    try {
+                        output.writeInt(2);
+                        output.writeUTF(textArea.getText());
+                        output.flush();
+                    } catch (IOException ex) {
+                        System.out.println("Erro ao enviar edição para o servidor.");
+                        Logger.getLogger(GfxInterface.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
             }
         });
         textPanel.add(textArea);
@@ -117,13 +210,18 @@ public class GfxInterface {
         mainFrame.setVisible(true);
     }
     
+    private void setClientThread()//Inicia a thread para receber mensagem do servidor
+    {
+        clientThread = new Thread(new ClientManager(input, textArea, this));
+        clientThread.start();
+    }
+    
     private void startMenuBar()//Inicializa a barra de menus no topo
     {
         //Inicializa a barra de menus
         JMenuBar menuBar = new JMenuBar();
         JMenu menuFile = new JMenu("File");
         JMenu menuProgram = new JMenu("Program");
-        
         JMenuItem fileOpen = new JMenuItem("Open");
         fileOpen.addActionListener(new ActionListener(){
             public void actionPerformed(ActionEvent e)
@@ -256,17 +354,24 @@ public class GfxInterface {
     {
         this.fileName = JOptionPane.showInputDialog("Qual o nome do arquivo onde"
                 + "deseja salvar seu texto?");
-        server.setFileName(fileName);
-    }
-    
-    public void startNewThread()//Inicia um nova thread de salvamento
-    {
-        Thread thread = new Thread(server);
-        thread.run();
+        
+        try {
+            output.writeInt(1);
+            output.writeUTF(fileName);
+            output.flush();
+        } catch (IOException ex) {
+            System.out.println("Erro ao enviar dados ao servidor.");
+            Logger.getLogger(GfxInterface.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
     
     public JTextArea getText()
     {
         return textArea;
+    }
+    
+    public void setNeedsUpdate(boolean bol)
+    {
+        needsUpdate = bol;
     }
 }
